@@ -4,7 +4,8 @@
 import sys
 import os
 import argparse
-import time
+import datetime
+import yaml
 import pandas as pd
 import numpy as np
 from cryosparc_compute import dataset
@@ -29,9 +30,10 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description=__doc__
     )
-    parser.add_argument('--orig_cs_file', required=True, help='The extracted_particles.cs file of the extraction job with binning.')
-    parser.add_argument('--orig_passthrough_file', required=True, help='The P*_J*_passthrough_particles.cs file of the extraction job with binning.')
-    parser.add_argument('--imported_cs_file', required=True, help='The imported_particles.cs file of the import job.')
+    parser.add_argument('--orig_cs_file', required=True, help='The cs file of the cryosparc job which was exported to RELION.')
+    parser.add_argument('--orig_csg_file', required=True, help='The csg file of the cryosparc job which was exported to RELION.')
+    parser.add_argument('--orig_passthrough_file', required=True, help='The P*_J*_passthrough_particles.cs file of the cryosparc job which was exported to RELION.')
+    parser.add_argument('--imported_cs_file', required=True, help='The imported_particles.cs file of the import job. (import from RELION)')
     parser.add_argument('--output_cs_file', required=True, help='Output cs file.'),
     parser.add_argument('--orig_num_remove_blobpath_uuid', type=int, default=1, help='Preceding UUID strings will be removed from blobpaths of the original dataset this many times.')
     parser.add_argument('--imported_num_remove_blobpath_uuid', type=int, default=2, help='Preceding UUID strings will be removed from blobpaths of the imported dataset this many times.')
@@ -48,6 +50,15 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    assert not os.path.exists(args.output_cs_file), f'The output cs file {args.output_cs_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
+    output_cs_file_basename = os.path.basename(args.output_cs_file)
+    output_csg_file = os.path.splitext(args.output_cs_file)[0] + '.csg'
+    assert not os.path.exists(output_csg_file), f'The output csg file {output_csg_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
+
+    print(f'Loading {args.orig_csg_file} ...')
+    with open(args.orig_csg_file, 'r') as f:
+        orig_csg = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f'Loading {args.orig_cs_file} ...')
     orig_dataset = dataset.Dataset().from_file(args.orig_cs_file)
@@ -192,6 +203,28 @@ def main():
     assert len(df_out) == len(df_imported)
 
     print(f'The number of the total particles: {len(df_out)}')
+    num_items = len(df_out)
+    print(f'Saving output cs file...')
+    output_dataset = dataset.Dataset().from_dataframe(df_out)
+    output_dataset.to_file(args.output_cs_file)
+    print(f'The output cs file {args.output_cs_file} saved.')
+
+    orig_csg['group']['description'] = 'Created by csutil_transfer_alignments3d.py of https://github.com/kttn8769/cryosparc_utils.git'
+    orig_csg['created'] = datetime.datetime.now()
+    results_keys = orig_csg['results'].keys()
+    for key in results_keys:
+        orig_csg['results'][key]['metafile'] = f'>{output_cs_file_basename}'
+        orig_csg['results'][key]['num_items'] = num_items
+    if 'alignments3D' not in results_keys:
+        orig_csg['results']['alignments3D'] = {
+            'metafile': f'>{output_cs_file_basename}',
+            'num_items': num_items,
+            'type': 'particle.alignments3D'
+        }
+    with open(output_csg_file, 'w') as f:
+        yaml.dump(orig_csg, stream=f)
+    print(f'The accompanying csg file {output_csg_file}. Use this file for the input of Import Result Group job in cryoSPARC.')
+    print('Program finished! Good luck!!')
 
 
 if __name__ == '__main__':
