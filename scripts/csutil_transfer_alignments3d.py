@@ -66,6 +66,7 @@ def main():
 
     print(f'Preparing the original dataset infos')
     df_orig = orig_dataset_passthrough.to_dataframe()
+    df_orig_dtypes = df_orig.dtypes.to_dict()
     # Convert to numpy array for speeding up.
     arr_orig = df_orig.to_numpy(copy=True)
     cols_orig = list(df_orig.columns)
@@ -84,6 +85,7 @@ def main():
 
     print(f'Preparing the imported dataset infos')
     df_imported = imported_dataset.to_dataframe()
+    df_imported_dtypes = df_imported.dtypes.to_dict()
     arr_imported = df_imported.to_numpy(copy=True)
     cols_imported = list(df_imported.columns)
     cols_imported_colidx_blobpath = cols_imported.index('blob/path')
@@ -181,6 +183,11 @@ def main():
 
     print('\nConcatenating dataframes...')
     df_out = pd.concat(output_df_list, ignore_index=True)
+    df_out_dtypes = df_orig_dtypes
+    for k, v in df_imported_dtypes.items():
+        if 'alignments3D' in k:
+            df_out_dtypes[k] = v
+    df_out = df_out.astype(df_out_dtypes)
 
     assert len(df_out) == len(df_imported)
 
