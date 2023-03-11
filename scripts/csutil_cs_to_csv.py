@@ -26,6 +26,10 @@ def parse_args():
 
 def main(infile: str, outfile: str, overwrite: bool) -> None:
     assert os.path.exists(infile), f'Input file {infile} not exist'
+
+    if outfile is None:
+        outfile = os.path.splitext(infile)[0] + '.csv'
+
     if not overwrite:
         assert not os.path.exists(outfile), f'Output file {outfile} already exists. Use --overwrite to overwrite the file.'
 
