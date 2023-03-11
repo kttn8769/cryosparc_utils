@@ -37,6 +37,7 @@ def parse_args():
     parser.add_argument('--output_cs_file', required=True, help='Output cs file.'),
     parser.add_argument('--orig_num_remove_blobpath_uuid', type=int, default=1, help='Preceding UUID strings will be removed from blobpaths of the original dataset this many times.')
     parser.add_argument('--imported_num_remove_blobpath_uuid', type=int, default=2, help='Preceding UUID strings will be removed from blobpaths of the imported dataset this many times.')
+    parser.add_argument('--overwrite', action='store_true', help='Allow overwriting output files.')
 
     args = parser.parse_args()
 
@@ -51,21 +52,23 @@ def parse_args():
 def main():
     args = parse_args()
 
-    assert not os.path.exists(args.output_cs_file), f'The output cs file {args.output_cs_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
+    if not args.overwrite:
+        assert not os.path.exists(args.output_cs_file), f'The output cs file {args.output_cs_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
     output_cs_file_basename = os.path.basename(args.output_cs_file)
     output_csg_file = os.path.splitext(args.output_cs_file)[0] + '.csg'
-    assert not os.path.exists(output_csg_file), f'The output csg file {output_csg_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
+    if not args.overwrite:
+        assert not os.path.exists(output_csg_file), f'The output csg file {output_csg_file} already exists. If you want to overwride the file, manualy remove it before use this script.'
 
     print(f'Loading {args.orig_csg_file} ...')
     with open(args.orig_csg_file, 'r') as f:
         orig_csg = yaml.load(f, Loader=yaml.FullLoader)
 
     print(f'Loading {args.orig_cs_file} ...')
-    orig_dataset = dataset.Dataset().from_file(args.orig_cs_file)
+    orig_dataset = dataset.Dataset().load(args.orig_cs_file)
     print(f'Loading {args.orig_passthrough_file} ...')
-    orig_passthrough = dataset.Dataset().from_file(args.orig_passthrough_file)
+    orig_passthrough = dataset.Dataset().load(args.orig_passthrough_file)
     print(f'Loading {args.imported_cs_file} ...')
-    imported_dataset = dataset.Dataset().from_file(args.imported_cs_file)
+    imported_dataset = dataset.Dataset().load(args.imported_cs_file)
 
     assert len(orig_dataset) == len(orig_passthrough)
     # The imported dataset must be a subset of the original dataset.
@@ -73,10 +76,10 @@ def main():
 
     # Combine the original dataset and passthrough infos
     print(f'Combining the original dataset and passthrough infos...')
-    orig_dataset_passthrough = dataset.Dataset().from_dataset(orig_passthrough).innerjoin(orig_dataset)
+    orig_dataset_passthrough = dataset.Dataset(orig_passthrough).innerjoin(orig_dataset)
 
     print(f'Preparing the original dataset infos')
-    df_orig = orig_dataset_passthrough.to_dataframe()
+    df_orig = dataset.to_dataframe(orig_dataset_passthrough)
     df_orig_dtypes = df_orig.dtypes.to_dict()
     # Convert to numpy array for speeding up.
     arr_orig = df_orig.to_numpy(copy=True)
@@ -95,7 +98,7 @@ def main():
     orig_blobpaths_basename_sorted = orig_blobpaths_basename[arr_orig_sort_idxs]
 
     print(f'Preparing the imported dataset infos')
-    df_imported = imported_dataset.to_dataframe()
+    df_imported = dataset.to_dataframe(imported_dataset)
     df_imported_dtypes = df_imported.dtypes.to_dict()
     arr_imported = df_imported.to_numpy(copy=True)
     cols_imported = list(df_imported.columns)
@@ -205,8 +208,8 @@ def main():
     print(f'The number of the total particles: {len(df_out)}')
     num_items = len(df_out)
     print(f'Saving output cs file...')
-    output_dataset = dataset.Dataset().from_dataframe(df_out)
-    output_dataset.to_file(args.output_cs_file)
+    output_dataset = dataset.Dataset(df_out.to_records(index=False))
+    output_dataset.save(args.output_cs_file)
     print(f'The output cs file {args.output_cs_file} saved.')
 
     orig_csg['group']['description'] = 'Created by csutil_transfer_alignments3d.py of https://github.com/kttn8769/cryosparc_utils.git'
