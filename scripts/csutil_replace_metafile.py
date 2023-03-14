@@ -39,7 +39,7 @@ def main(infile: str, outfile: str, metafile: str, overwrite: bool) -> None:
     outlines = []
     for line in inlines:
         if 'metafile' in line:
-            line = re.sub(r"(\s*metafile:\s*'>)(.+\.cs)'", f'\\g<1>{metafile}', line)
+            line = re.sub(r"(\s*metafile:\s*'>)(.+\.cs)'", f'\\g<1>{metafile}\'', line)
         elif 'num_items' in line:
             line = re.sub(r"(\s*num_items:\s*)([0-9]+)", f'\\g<1>{num_ptcls}', line)
         outlines.append(line)
