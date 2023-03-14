@@ -14,6 +14,7 @@ def parse_args():
         description=__doc__
     )
     parser.add_argument('--infile', type=str, required=True, help='Input cs file.')
+    parser.add_argument('--infile-passthrough', type=str, help='Input passthrough cs file.')
     parser.add_argument('--outfile-rootname', type=str, required=True, help='Root name for output files.')
     parser.add_argument('--target', type=str, required=True, help='Target feature for filtering.')
     parser.add_argument('--sigma', type=float, help='Only mean ± sigma * stdev particles will be retained.')
@@ -31,11 +32,17 @@ def parse_args():
     return args
 
 
-def main(infile: str, outfile_rootname: str, target: str, sigma: float, minval: float, maxval: float, overwrite: bool) -> None:
+def main(infile: str, infile_passthrough: str, outfile_rootname: str, target: str, sigma: float, minval: float, maxval: float, overwrite: bool) -> None:
     assert os.path.exists(infile), f'Input file {infile} does not exist.'
 
-    inarr = dataset.Dataset().load(infile).to_records()
+    indata = dataset.Dataset().load(infile)
+    inarr = indata.to_records()
     assert target in inarr.dtype.names, f'Target {target} does not exist in {infile}.'
+
+    if infile_passthrough is not None:
+        assert os.path.exists(infile_passthrough), f'Input passthrough file {infile_passthrough} does not exist.'
+        indatapassthrough = dataset.Dataset().load(infile_passthrough)
+        indata = indata.innerjoin(indatapassthrough)
 
     dat = inarr[target]
     dat_stat = scipy.stats.describe(dat)
@@ -83,6 +90,7 @@ if __name__ == '__main__':
     args = parse_args()
     main(
         args.infile,
+        args.infile_passthrough,
         args.outfile_rootname,
         args.target,
         args.sigma,
