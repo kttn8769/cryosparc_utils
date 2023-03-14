@@ -58,7 +58,7 @@ def main(infile: str, outfile_rootname: str, overwrite: bool, num_bins: str, tar
         ax.set_ylabel('Frequency')
         ax.text(
             0.99, 0.99,
-            f'Mean {stat.mean:.6f}\nMin {stat.minmax[0]:.6f}\nMax {stat.minmax[1]:.6f}\nStdev {np.sqrt(stat.variance):.6f}',
+            f'Mean {stat.mean:.6f}\nMin {stat.minmax[0]:.6f}\nMax {stat.minmax[1]:.6f}\nStdev {np.sqrt(stat.variance):.6f}\n#Ptcls {stat.nobs}',
             va='top', ha='right', transform=ax.transAxes
         )
         plt.savefig(outfile)
